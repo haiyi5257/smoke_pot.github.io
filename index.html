@@ -1,1 +1,592 @@
-qqqq
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>宁波地铁一号线 - 交互式线路图</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+            color: #333;
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(to right, #0066b3, #0099cc);
+            color: white;
+            padding: 25px 20px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M0,0 L100,0 L100,100 Z" fill="rgba(255,255,255,0.1)"/></svg>');
+            background-size: cover;
+        }
+        
+        header h1 {
+            margin-bottom: 10px;
+            font-size: 2.5rem;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            position: relative;
+        }
+        
+        header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            position: relative;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            padding: 15px 20px;
+            background-color: #f0f8ff;
+            border-bottom: 2px solid #0066b3;
+            flex-wrap: wrap;
+        }
+        
+        .search-box {
+            display: flex;
+            align-items: center;
+        }
+        
+        .search-box input {
+            padding: 10px 15px;
+            border: 1px solid #ccc;
+            border-radius: 25px 0 0 25px;
+            outline: none;
+            width: 250px;
+            font-size: 16px;
+        }
+        
+        .search-box button {
+            padding: 10px 20px;
+            background-color: #0066b3;
+            color: white;
+            border: none;
+            border-radius: 0 25px 25px 0;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .search-box button:hover {
+            background-color: #004d88;
+        }
+        
+        .filter-options {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .filter-btn {
+            padding: 8px 15px;
+            background-color: white;
+            border: 1px solid #0066b3;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: #0066b3;
+        }
+        
+        .filter-btn.active {
+            background-color: #0066b3;
+            color: white;
+        }
+        
+        .filter-btn:hover {
+            background-color: #e6f2ff;
+        }
+        
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+        
+        .metro-map-container {
+            position: relative;
+            margin-bottom: 30px;
+            overflow-x: auto;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        }
+        
+        .line-path {
+            display: flex;
+            min-width: 1200px;
+            position: relative;
+            margin: 40px 0;
+            padding: 0 20px;
+        }
+        
+        .line-path::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 20px;
+            right: 20px;
+            height: 10px;
+            background: linear-gradient(to right, #0066b3, #0099cc);
+            transform: translateY(-50%);
+            z-index: 1;
+            border-radius: 5px;
+        }
+        
+        .station {
+            position: relative;
+            flex: 1;
+            text-align: center;
+            z-index: 2;
+            cursor: pointer;
+            transition: transform 0.3s;
+        }
+        
+        .station:hover {
+            transform: translateY(-5px);
+        }
+        
+        .station-dot {
+            width: 24px;
+            height: 24px;
+            background-color: white;
+            border: 5px solid #0066b3;
+            border-radius: 50%;
+            margin: 0 auto 10px;
+            position: relative;
+            z-index: 3;
+            transition: all 0.3s;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+        
+        .station:hover .station-dot {
+            transform: scale(1.2);
+            box-shadow: 0 5px 15px rgba(0, 102, 179, 0.4);
+        }
+        
+        .transfer .station-dot {
+            border-color: #ff6600;
+            background-color: #ff6600;
+        }
+        
+        .station-name {
+            font-size: 14px;
+            margin-bottom: 5px;
+            font-weight: bold;
+            transition: color 0.3s;
+        }
+        
+        .station:hover .station-name {
+            color: #0066b3;
+        }
+        
+        .station-english {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .station-info {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            width: 250px;
+            z-index: 10;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+            border-left: 4px solid #0066b3;
+        }
+        
+        .station:hover .station-info {
+            opacity: 1;
+            visibility: visible;
+            bottom: calc(100% + 15px);
+        }
+        
+        .station-info h4 {
+            color: #0066b3;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .station-info p {
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        .transfer-station {
+            color: #ff6600;
+            font-weight: bold;
+        }
+        
+        .details-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .detail-section {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s;
+        }
+        
+        .detail-section:hover {
+            transform: translateY(-5px);
+        }
+        
+        .detail-section h3 {
+            color: #0066b3;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e6f2ff;
+            display: flex;
+            align-items: center;
+        }
+        
+        .detail-section h3 i {
+            margin-right: 10px;
+            font-size: 1.2em;
+        }
+        
+        .timetable table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .timetable th, .timetable td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #e6f2ff;
+        }
+        
+        .timetable th {
+            background-color: #e6f2ff;
+            color: #0066b3;
+        }
+        
+        .timetable tr:hover {
+            background-color: #f5f9ff;
+        }
+        
+        .line-stats {
+            display: flex;
+            justify-content: space-around;
+            background: linear-gradient(to right, #0066b3, #0099cc);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 20px;
+            background-color: #f0f0f0;
+            color: #666;
+            font-size: 14px;
+            border-top: 1px solid #ddd;
+        }
+        
+        .highlight {
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(0, 102, 179, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(0, 102, 179, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 102, 179, 0); }
+        }
+        
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .search-box {
+                width: 100%;
+            }
+            
+            .search-box input {
+                width: 100%;
+            }
+            
+            .filter-options {
+                justify-content: center;
+            }
+            
+            .station-name {
+                font-size: 12px;
+            }
+            
+            .station-english {
+                font-size: 10px;
+            }
+            
+            .line-stats {
+                flex-wrap: wrap;
+                gap: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>宁波地铁一号线</h1>
+            <p>Ningbo Metro Line 1 - 连接城市东西的重要交通干线</p>
+        </header>
+        
+        <div class="controls">
+            <div class="search-box">
+                <input type="text" id="station-search" placeholder="输入站点名称搜索...">
+                <button id="search-btn">搜索</button>
+            </div>
+            
+            <div class="filter-options">
+                <button class="filter-btn active" data-filter="all">全部站点</button>
+                <button class="filter-btn" data-filter="transfer">换乘站点</button>
+                <button class="filter-btn" data-filter="terminal">起终点站</button>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div class="line-stats">
+                <div class="stat-item">
+                    <div class="stat-value">46.15</div>
+                    <div class="stat-label">线路长度(公里)</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">29</div>
+                    <div class="stat-label">车站数量</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">2014</div>
+                    <div class="stat-label">开通年份</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">3</div>
+                    <div class="stat-label">换乘线路</div>
+                </div>
+            </div>
+            
+            <div class="metro-map-container">
+                <div class="line-path" id="metro-line">
+                    <!-- 站点将通过JavaScript动态生成 -->
+                </div>
+            </div>
+            
+            <div class="details-container">
+                <div class="detail-section">
+                    <h3><i>📋</i> 线路信息</h3>
+                    <p>宁波地铁一号线是宁波轨道交通的第一条线路，也是目前宁波地铁系统中最繁忙的线路之一。</p>
+                    <p>线路贯穿宁波市中心，连接了海曙区、江北区、鄞州区和北仑区，是宁波城市轨道交通的骨干线路。</p>
+                    <p>一号线分为一期和二期工程，分别于2014年和2016年开通运营。</p>
+                </div>
+                
+                <div class="detail-section">
+                    <h3><i>🔄</i> 换乘信息</h3>
+                    <ul>
+                        <li><span class="transfer-station">东门口(天一广场)站</span>：可换乘2号线</li>
+                        <li><span class="transfer-station">樱花公园站</span>：可换乘3号线</li>
+                        <li><span class="transfer-station">福明路站</span>：可换乘3号线</li>
+                    </ul>
+                </div>
+                
+                <div class="detail-section timetable">
+                    <h3><i>⏰</i> 运营时间</h3>
+                    <table>
+                        <tr>
+                            <th>方向</th>
+                            <th>首班车</th>
+                            <th>末班车</th>
+                        </tr>
+                        <tr>
+                            <td>高桥西 → 霞浦</td>
+                            <td>06:00</td>
+                            <td>22:00</td>
+                        </tr>
+                        <tr>
+                            <td>霞浦 → 高桥西</td>
+                            <td>06:00</td>
+                            <td>22:00</td>
+                        </tr>
+                    </table>
+                    <p style="margin-top: 10px; font-size: 14px; color: #666;">* 具体运营时间可能根据节假日调整，请以车站公告为准。</p>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>© 2023 宁波地铁一号线信息展示 | 数据仅供参考，请以官方信息为准</p>
+        </footer>
+    </div>
+
+    <script>
+        // 站点数据
+        const stations = [
+            { name: "高桥西", english: "Gaoqiao West", isTransfer: false, isTerminal: true },
+            { name: "高桥", english: "Gaoqiao", isTransfer: false, isTerminal: false },
+            { name: "梁祝", english: "Liangzhu", isTransfer: false, isTerminal: false },
+            { name: "芦港", english: "Lugang", isTransfer: false, isTerminal: false },
+            { name: "徐家漕长乐", english: "Xujiacao Changle", isTransfer: false, isTerminal: false },
+            { name: "望春桥", english: "Wangchunqiao", isTransfer: false, isTerminal: false },
+            { name: "泽民", english: "Zemin", isTransfer: false, isTerminal: false },
+            { name: "大卿桥", english: "Daqingqiao", isTransfer: false, isTerminal: false },
+            { name: "西门口", english: "Ximenkou", isTransfer: false, isTerminal: false },
+            { name: "鼓楼", english: "Gulou", isTransfer: false, isTerminal: false },
+            { name: "东门口(天一广场)", english: "Dongmenkou(Tianyi Square)", isTransfer: true, isTerminal: false },
+            { name: "江厦桥东", english: "Jiangxiaqiao East", isTransfer: false, isTerminal: false },
+            { name: "舟孟北路", english: "Zhoumeng North Road", isTransfer: false, isTerminal: false },
+            { name: "樱花公园", english: "Yinghua Park", isTransfer: true, isTerminal: false },
+            { name: "福明路", english: "Fuming Road", isTransfer: true, isTerminal: false },
+            { name: "世纪大道", english: "Shiji Avenue", isTransfer: false, isTerminal: false },
+            { name: "海晏北路", english: "Haiyan North Road", isTransfer: false, isTerminal: false },
+            { name: "福庆北路", english: "Fuqing North Road", isTransfer: false, isTerminal: false },
+            { name: "盛莫路", english: "Shengmo Road", isTransfer: false, isTerminal: false },
+            { name: "东环南路", english: "Donghuan South Road", isTransfer: false, isTerminal: false },
+            { name: "邱隘东", english: "Qiu'ai East", isTransfer: false, isTerminal: false },
+            { name: "五乡", english: "Wuxiang", isTransfer: false, isTerminal: false },
+            { name: "宝幢", english: "Baozhuang", isTransfer: false, isTerminal: false },
+            { name: "邬隘", english: "Wu'ai", isTransfer: false, isTerminal: false },
+            { name: "大碶", english: "Daqi", isTransfer: false, isTerminal: false },
+            { name: "松花江路", english: "Songhuajiang Road", isTransfer: false, isTerminal: false },
+            { name: "中河路", english: "Zhonghe Road", isTransfer: false, isTerminal: false },
+            { name: "长江路", english: "Changjiang Road", isTransfer: false, isTerminal: false },
+            { name: "霞浦", english: "Xiapu", isTransfer: false, isTerminal: true }
+        ];
+
+        // 生成站点HTML
+        function renderStations(filter = 'all') {
+            const metroLine = document.getElementById('metro-line');
+            metroLine.innerHTML = '';
+            
+            stations.forEach(station => {
+                if (filter === 'transfer' && !station.isTransfer) return;
+                if (filter === 'terminal' && !station.isTerminal) return;
+                
+                const stationElement = document.createElement('div');
+                stationElement.className = 'station';
+                if (station.isTransfer) stationElement.classList.add('transfer');
+                
+                stationElement.innerHTML = `
+                    <div class="station-dot"></div>
+                    <div class="station-name">${station.name}</div>
+                    <div class="station-english">${station.english}</div>
+                    <div class="station-info">
+                        <h4>${station.name}</h4>
+                        <p><strong>英文名:</strong> ${station.english}</p>
+                        <p><strong>首班车:</strong> 06:00</p>
+                        <p><strong>末班车:</strong> 22:00</p>
+                        ${station.isTransfer ? '<p><strong>换乘信息:</strong> 可换乘其他线路</p>' : ''}
+                        ${station.isTerminal ? '<p><strong>站点类型:</strong> 起终点站</p>' : ''}
+                    </div>
+                `;
+                
+                metroLine.appendChild(stationElement);
+            });
+        }
+
+        // 初始化站点
+        renderStations();
+
+        // 搜索功能
+        document.getElementById('search-btn').addEventListener('click', function() {
+            const searchTerm = document.getElementById('station-search').value.toLowerCase();
+            if (!searchTerm) return;
+            
+            const allStations = document.querySelectorAll('.station');
+            let found = false;
+            
+            allStations.forEach(station => {
+                const stationName = station.querySelector('.station-name').textContent.toLowerCase();
+                const englishName = station.querySelector('.station-english').textContent.toLowerCase();
+                
+                if (stationName.includes(searchTerm) || englishName.includes(searchTerm)) {
+                    station.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    station.querySelector('.station-dot').classList.add('highlight');
+                    setTimeout(() => {
+                        station.querySelector('.station-dot').classList.remove('highlight');
+                    }, 3000);
+                    found = true;
+                }
+            });
+            
+            if (!found) {
+                alert('未找到相关站点，请检查输入是否正确。');
+            }
+        });
+
+        // 筛选功能
+        document.querySelectorAll('.filter-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+                this.classList.add('active');
+                
+                const filter = this.getAttribute('data-filter');
+                renderStations(filter);
+            });
+        });
+
+        // 回车键搜索
+        document.getElementById('station-search').addEventListener('keyup', function(event) {
+            if (event.key === 'Enter') {
+                document.getElementById('search-btn').click();
+            }
+        });
+    </script>
+</body>
+</html>
